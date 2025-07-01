@@ -1,195 +1,160 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Baked Beans Solana dApp</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baked Beans Solana dApp (Direct Method)</title>
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 2em auto; padding: 1em; line-height: 1.6; background-color: #f4f4f4; }
-        button { font-size: 1em; padding: 0.5em 1em; cursor: pointer; border-radius: 5px; border: 1px solid #ccc; }
-        #connectButton { background-color: #9945FF; color: white; border-color: #9945FF;}
-        #bakeBeansButton { background-color: #14F195; color: black; border-color: #14F195;}
-        input { padding: 0.5em; font-size: 1em; width: 95%; }
-        p { word-wrap: break-word; }
-        #walletStatus { font-weight: bold; }
-        #txStatus { padding: 0.5em; background-color: #eee; border-radius: 5px; font-family: monospace; }
-        hr { margin: 2em 0; }
+        body { font-family: sans-serif; max-width: 600px; margin: 2em auto; padding: 1em; line-height: 1.6; background-color: #f4f4f4; color: #333; }
+        .container { background-color: white; padding: 2em; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1, h3 { color: #111; }
+        button { font-size: 1em; padding: 0.8em 1.2em; cursor: pointer; border-radius: 8px; border: none; font-weight: bold; width: 100%; margin-top: 1em; }
+        input { padding: 0.8em; font-size: 1em; width: 95%; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 1em; }
+        pre { padding: 1em; background-color: #eee; border-radius: 5px; font-family: 'Courier New', Courier, monospace; white-space: pre-wrap; word-wrap: break-word; }
+        hr { margin: 2em 0; border: 0; border-top: 1px solid #e0e0e0; }
+        #connectButton { background-color: #512da8; color: white; }
+        #bakeBeansButton { background-color: #14F195; color: black; }
     </style>
-    <!-- We will use browser versions of the Solana and Anchor libraries from a CDN -->
+    <!-- Load only the two essential libraries -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@coral-xyz/anchor@latest/dist/browser/index.iife.min.js"></script>
 </head>
 <body>
-    <h1>Baked Beans Solana dApp</h1>
-    <p>Connect your wallet (Phantom, Backpack, Solflare, etc.) to interact with the deployed program on your fork.</p>
-    
-    <button id="connectButton">Connect Wallet</button>
-    <p id="walletStatus">Status: Not Connected</p>
-    
-    <hr>
-    
-    <div id="controls" style="display: none;">
-        <h3>1. Invest SOL (Bake Beans)</h3>
-        <label for="solAmount">Amount (SOL):</label>
-        <input type="number" id="solAmount" value="0.1" step="0.01">
-        <br><br>
-        <button id="bakeBeansButton">Bake Beans (Invest)</button>
+
+    <div class="container">
+        <h1>Baked Beans dApp</h1>
+        <p>A simple and direct interface to interact with your program.</p>
+        
+        <button id="connectButton">Connect Wallet</button>
+        <p id="walletStatus">Status: Not Connected</p>
+        
+        <hr>
+        
+        <div id="controls" style="display: none;">
+            <h3>Invest SOL (Bake Beans)</h3>
+            <label for="solAmount">Amount (SOL):</label>
+            <input type="number" id="solAmount" value="0.1" step="0.01">
+            <button id="bakeBeansButton">Bake Beans</button>
+        </div>
+
+        <hr>
+        <h3>Transaction Status</h3>
+        <pre id="txStatus">Awaiting transaction...</pre>
     </div>
 
-    <hr>
-    <h3>Transaction Status</h3>
-    <p id="txStatus">Awaiting transaction...</p>
-
     <script>
-        // ====================================================================
-        // === STEP 1: PASTE YOUR PROGRAM DETAILS HERE ========================
-        // ====================================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("Page loaded. Initializing script...");
 
-        // 1. Replace this with the Program ID from your `declare_id!` macro.
-        const PROGRAM_ID_STRING = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"; 
-        
-        // 2. Replace this empty object {} with the ENTIRE IDL JSON object you copied
-        //    from `target/types/baked_beans_solana.ts`.
-        const IDL = {
-          "version": "0.1.0",
-          "name": "baked_beans_solana",
-          "instructions": [
-            { "name": "initialize", "accounts": [ { "name": "poolConfig", "isMut": true, "isSigner": true }, { "name": "ceo", "isMut": true, "isSigner": true }, { "name": "marketingWallet", "isMut": false, "isSigner": false }, { "name": "systemProgram", "isMut": false, "isSigner": false } ], "args": [] },
-            { "name": "startTrading", "accounts": [ { "name": "poolConfig", "isMut": true, "isSigner": false }, { "name": "ceo", "isMut": true, "isSigner": true } ], "args": [] },
-            { "name": "bakeBeans", "accounts": [ { "name": "poolConfig", "isMut": true, "isSigner": false }, { "name": "userAccount", "isMut": true, "isSigner": false }, { "name": "user", "isMut": true, "isSigner": true }, { "name": "ceoWallet", "isMut": true, "isSigner": false }, { "name": "marketingWallet", "isMut": true, "isSigner": false }, { "name": "systemProgram", "isMut": false, "isSigner": false } ], "args": [ { "name": "referrerPubkey", "type": "publicKey" }, { "name": "lamports", "type": "u64" } ] },
-            { "name": "hatchEggs", "accounts": [ { "name": "poolConfig", "isMut": true, "isSigner": false }, { "name": "userAccount", "isMut": true, "isSigner": false }, { "name": "user", "isMut": true, "isSigner": true } ], "args": [] },
-            { "name": "sellEggs", "accounts": [ { "name": "poolConfig", "isMut": true, "isSigner": false }, { "name": "userAccount", "isMut": true, "isSigner": false }, { "name": "user", "isMut": true, "isSigner": true }, { "name": "ceoWallet", "isMut": true, "isSigner": false }, { "name": "marketingWallet", "isMut": true, "isSigner": false }, { "name": "systemProgram", "isMut": false, "isSigner": false } ], "args": [] }
-          ],
-          "accounts": [
-            { "name": "PoolConfig", "type": { "kind": "struct", "fields": [ { "name": "ceo", "type": "publicKey" }, { "name": "marketingWallet", "type": "publicKey" }, { "name": "contractStarted", "type": "bool" }, { "name": "marketEggs", "type": "u64" } ] } },
-            { "name": "User", "type": { "kind": "struct", "fields": [ { "name": "user", "type": "publicKey" }, { "name": "miners", "type": "u64" }, { "name": "claimedEggs", "type": "u64" }, { "name": "lastHatchTime", "type": "i64" }, { "name": "referrer", "type": "publicKey" } ] } }
-          ],
-          "errors": [
-            { "code": 6000, "name": "Unauthorized", "msg": "Unauthorized action." },
-            { "code": 6001, "name": "AlreadyStarted", "msg": "Contract has already been started." },
-            { "code": 6002, "name": "NotStarted", "msg": "Contract has not been started yet." },
-            { "code": 6003, "name": "InvestmentTooSmall", "msg": "Investment must be at least 0.025 SOL." },
-            { "code": 6004, "name": "InsufficientEggs", "msg": "Not enough eggs to sell." },
-            { "code": 6005, "name": "MissingReferrerAccount", "msg": "The referrer account must be passed for a user who has a referrer." },
-            { "code": 6006, "name": "InvalidReferrerAccount", "msg": "The passed referrer account does not match the stored referrer." }
-          ]
-        };
+            // --- Your Program Details ---
+            const rpcUrl = "https://rpc.gorbagana.wtf";
+            const programId = new anchor.web3.PublicKey("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+            const idl = { "version": "0.1.0", "name": "baked_beans_solana", "instructions": [ { "name": "initialize", "accounts": [ { "name": "poolConfig", "isMut": true, "isSigner": true }, { "name": "ceo", "isMut": true, "isSigner": true }, { "name": "marketingWallet", "isMut": false, "isSigner": false }, { "name": "systemProgram", "isMut": false, "isSigner": false } ], "args": [] }, { "name": "startTrading", "accounts": [ { "name": "poolConfig", "isMut": true, "isSigner": false }, { "name": "ceo", "isMut": true, "isSigner": true } ], "args": [] }, { "name": "bakeBeans", "accounts": [ { "name": "poolConfig", "isMut": true, "isSigner": false }, { "name": "userAccount", "isMut": true, "isSigner": false }, { "name": "user", "isMut": true, "isSigner": true }, { "name": "ceoWallet", "isMut": true, "isSigner": false }, { "name": "marketingWallet", "isMut": true, "isSigner": false }, { "name": "systemProgram", "isMut": false, "isSigner": false } ], "args": [ { "name": "referrerPubkey", "type": "publicKey" }, { "name": "lamports", "type": "u64" } ] }, { "name": "hatchEggs", "accounts": [ { "name": "poolConfig", "isMut": true, "isSigner": false }, { "name": "userAccount", "isMut": true, "isSigner": false }, { "name": "user", "isMut": true, "isSigner": true } ], "args": [] }, { "name": "sellEggs", "accounts": [ { "name": "poolConfig", "isMut": true, "isSigner": false }, { "name": "userAccount", "isMut": true, "isSigner": false }, { "name": "user", "isMut": true, "isSigner": true }, { "name": "ceoWallet", "isMut": true, "isSigner": false }, { "name": "marketingWallet", "isMut": true, "isSigner": false }, { "name": "systemProgram", "isMut": false, "isSigner": false } ], "args": [] } ], "accounts": [ { "name": "PoolConfig", "type": { "kind": "struct", "fields": [ { "name": "ceo", "type": "publicKey" }, { "name": "marketingWallet", "type": "publicKey" }, { "name": "contractStarted", "type": "bool" }, { "name": "marketEggs", "type": "u64" } ] } }, { "name": "User", "type": { "kind": "struct", "fields": [ { "name": "user", "type": "publicKey" }, { "name": "miners", "type": "u64" }, { "name": "claimedEggs", "type": "u64" }, { "name": "lastHatchTime", "type": "i64" }, { "name": "referrer", "type": "publicKey" } ] } } ], "errors": [ { "code": 6000, "name": "Unauthorized", "msg": "Unauthorized action." }, { "code": 6001, "name": "AlreadyStarted", "msg": "Contract has already been started." }, { "code": 6002, "name": "NotStarted", "msg": "Contract has not been started yet." }, { "code": 6003, "name": "InvestmentTooSmall", "msg": "Investment must be at least 0.025 SOL." }, { "code": 6004, "name": "InsufficientEggs", "msg": "Not enough eggs to sell." }, { "code": 6005, "name": "MissingReferrerAccount", "msg": "The referrer account must be passed for a user who has a referrer." }, { "code": 6006, "name": "InvalidReferrerAccount", "msg": "The passed referrer account does not match the stored referrer." } ] };
+            
+            let wallet;
+            let provider;
+            let program;
 
-        // 3. This should be the URL of your fork.
-        const rpcUrl = "https://rpc.gorbagana.wtf"; 
+            const connectButton = document.getElementById('connectButton');
+            const walletStatus = document.getElementById('walletStatus');
+            const controls = document.getElementById('controls');
+            const bakeBeansButton = document.getElementById('bakeBeansButton');
+            const txStatus = document.getElementById('txStatus');
 
-        // ====================================================================
-        // === NO MORE EDITING NEEDED BELOW THIS LINE =========================
-        // ====================================================================
-
-        let connection;
-        let provider;
-        let program;
-        const programId = new anchor.web3.PublicKey(PROGRAM_ID_STRING);
-        
-        const connectButton = document.getElementById('connectButton');
-        const walletStatus = document.getElementById('walletStatus');
-        const controls = document.getElementById('controls');
-        const bakeBeansButton = document.getElementById('bakeBeansButton');
-        const txStatus = document.getElementById('txStatus');
-
-        /**
-         * THIS IS THE NEW, CORRECTED FUNCTION.
-         * It checks for multiple wallet providers in the correct order.
-         */
-        const getWalletProvider = () => {
-            if ('backpack' in window) {
-                console.log('Backpack wallet found!');
-                return window.backpack;
+            function getWallet() {
+                if ('backpack' in window) { console.log("Backpack wallet found!"); return window.backpack; }
+                if ('solana' in window && window.solana.isPhantom) { console.log("Phantom wallet found!"); return window.solana; }
+                return null;
             }
-            if ('solana' in window && window.solana.isPhantom) {
-                console.log('Phantom wallet found!');
-                return window.solana;
+
+            async function connectWallet() {
+                console.log("Connect button clicked.");
+                const detectedWallet = getWallet();
+                if (detectedWallet) {
+                    try {
+                        await detectedWallet.connect({ onlyIfTrusted: false });
+                        wallet = detectedWallet;
+                        walletStatus.textContent = `Connected: ${wallet.publicKey.toString()}`;
+                        connectButton.textContent = 'Wallet Connected';
+                        controls.style.display = 'block';
+                        const connection = new anchor.web3.Connection(rpcUrl, 'confirmed');
+                        provider = new anchor.AnchorProvider(connection, wallet, { commitment: "confirmed" });
+                        program = new anchor.Program(idl, programId, provider);
+                        console.log("Anchor provider and program initialized.");
+                    } catch (err) {
+                        console.error("Failed to connect wallet:", err);
+                    }
+                } else {
+                    alert("No Solana wallet found. Please install Backpack or Phantom.");
+                }
             }
-            if ('solflare' in window) {
-                console.log('Solflare wallet found!');
-                return window.solflare;
-            }
-            return null;
-        };
-        
-        // Handle Connect Wallet button click
-        connectButton.onclick = async () => {
-            const walletProvider = getWalletProvider();
-            if (walletProvider) {
+
+            async function bakeBeans() {
+                console.log("A. Bake Beans button clicked.");
+                if (!program || !wallet.publicKey) {
+                    alert("Please connect your wallet first.");
+                    return;
+                }
+
+                txStatus.textContent = "Preparing transaction...";
                 try {
-                    // All modern wallets support this `.connect()` method.
-                    const resp = await walletProvider.connect();
-                    walletStatus.textContent = `Connected: ${walletProvider.publicKey.toString()}`;
-                    controls.style.display = 'block';
-                    connectButton.textContent = 'Wallet Connected';
+                    const solAmount = parseFloat(document.getElementById('solAmount').value);
+                    const lamports = solAmount * anchor.web3.LAMPORTS_PER_SOL;
+                    const investmentAmount = new anchor.BN(lamports);
 
-                    // Setup Anchor with the detected wallet provider.
-                    connection = new anchor.web3.Connection(rpcUrl, 'confirmed');
-                    provider = new anchor.AnchorProvider(connection, walletProvider, { preflightCommitment: "confirmed" });
-                    program = new anchor.Program(IDL, programId, provider);
-                    console.log("Program loaded successfully.");
+                    console.log("B. Finding PDAs...");
+                    const [poolConfigPda] = anchor.web3.PublicKey.findProgramAddressSync([Buffer.from("pool_config")], programId);
+                    const [userPda] = anchor.web3.PublicKey.findProgramAddressSync([Buffer.from("user"), wallet.publicKey.toBuffer()], programId);
+                    
+                    console.log("C. Fetching pool config...");
+                    const poolConfig = await program.account.poolConfig.fetch(poolConfigPda);
+                    
+                    console.log("D. Building instructions manually...");
+
+                    // Instruction 1: The SOL transfer
+                    const transferInstruction = anchor.web3.SystemProgram.transfer({
+                        fromPubkey: wallet.publicKey,
+                        toPubkey: poolConfigPda,
+                        lamports: lamports,
+                    });
+                    
+                    // Instruction 2: The call to our program
+                    const bakeBeansInstruction = await program.methods
+                        .bakeBeans(anchor.web3.SystemProgram.programId, investmentAmount)
+                        .accounts({
+                            poolConfig: poolConfigPda,
+                            userAccount: userPda,
+                            user: wallet.publicKey,
+                            ceoWallet: poolConfig.ceo,
+                            marketingWallet: poolConfig.marketingWallet,
+                            systemProgram: anchor.web3.SystemProgram.programId,
+                        })
+                        .instruction();
+
+                    console.log("E. Creating new transaction and adding instructions...");
+                    const transaction = new anchor.web3.Transaction()
+                        .add(transferInstruction)
+                        .add(bakeBeansInstruction);
+
+                    txStatus.textContent = "Sending transaction... Please approve in your wallet.";
+                    console.log("F. Sending transaction to provider for signing and confirmation...");
+
+                    // Use the provider's generic `sendAndConfirm` method. This is the most robust way.
+                    const txSignature = await provider.sendAndConfirm(transaction);
+                    
+                    txStatus.textContent = `✅ Transaction Successful!\nSignature: ${txSignature}`;
+                    console.log("G. Transaction successful with signature:", txSignature);
 
                 } catch (err) {
-                    console.error("Connection failed", err);
-                    walletStatus.textContent = "Connection failed. Please refresh and try again.";
+                    console.error("Transaction failed:", err);
+                    txStatus.textContent = `❌ Transaction Failed:\n${err.message}`;
                 }
-            } else {
-                alert("No Solana wallet found! Please install Phantom, Backpack, or Solflare.");
-            }
-        };
-
-        // Handle Bake Beans button click - THIS PART DOES NOT NEED TO CHANGE.
-        bakeBeansButton.onclick = async () => {
-            if (!program) {
-                alert("Please connect your wallet first.");
-                return;
             }
 
-            txStatus.textContent = "Preparing transaction...";
-            try {
-                const solAmount = parseFloat(document.getElementById('solAmount').value);
-                const lamports = solAmount * anchor.web3.LAMPORTS_PER_SOL;
-                const investmentAmount = new anchor.BN(lamports);
-
-                const referrerKey = anchor.web3.SystemProgram.programId;
-
-                const [poolConfigPda] = anchor.web3.PublicKey.findProgramAddressSync(
-                    [Buffer.from("pool_config")], program.programId
-                );
-                const [userPda] = anchor.web3.PublicKey.findProgramAddressSync(
-                    [Buffer.from("user"), provider.wallet.publicKey.toBuffer()], program.programId
-                );
-                
-                const poolConfig = await program.account.poolConfig.fetch(poolConfigPda);
-
-                txStatus.textContent = "Sending transaction... Please approve in your wallet.";
-
-                const txSignature = await program.methods
-                    .bakeBeans(referrerKey, investmentAmount)
-                    .accounts({
-                        poolConfig: poolConfigPda,
-                        userAccount: userPda,
-                        user: provider.wallet.publicKey,
-                        ceoWallet: poolConfig.ceo,
-                        marketingWallet: poolConfig.marketingWallet,
-                        systemProgram: anchor.web3.SystemProgram.programId,
-                    })
-                    .preInstructions([
-                        anchor.web3.SystemProgram.transfer({
-                            fromPubkey: provider.wallet.publicKey,
-                            toPubkey: poolConfigPda,
-                            lamports: lamports,
-                        }),
-                    ])
-                    .rpc();
-                
-                txStatus.textContent = `Transaction successful! Signature: ${txSignature}`;
-                console.log("Transaction signature", txSignature);
-
-            } catch (err) {
-                console.error("Transaction failed", err);
-                txStatus.textContent = `Transaction failed: ${err.message || 'Unknown error'}`;
-            }
-        };
+            connectButton.onclick = connectWallet;
+            bakeBeansButton.onclick = bakeBeans;
+            console.log("Script initialized and event listeners attached.");
+        });
     </script>
 </body>
 </html>
